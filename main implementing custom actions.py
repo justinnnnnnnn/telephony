@@ -1,17 +1,16 @@
 #THIS IS IN PROGRESS:
-#TODO: fix why incoming speech load contains excessive characters
 #implement ability for agent to terminate phone call
-#implement actual sending of text message and not just have this boilerplate
+#implement actual sending of text message and not just have this boilerplate some awesome dude shared
+#trigger sending of text via call termination
 
 import os
-import agent_preamble
+from agent_preamble import agent_preamble
 from enum import Enum
 from typing import Type
 from loguru import logger
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
-
 
 from vocode.logging import configure_pretty_logging
 from vocode.streaming.action.base_action import BaseAction
@@ -33,8 +32,10 @@ configure_pretty_logging()
 app = FastAPI(docs_url=None)
 config_manager = RedisConfigManager()
 
-BASE_URL = os.getenv("BASE_URL")
 
+
+
+BASE_URL = os.getenv("BASE_URL")
 
 class MyActionType(str, Enum):
     TWILIO_SEND_SMS = "twilio_send_sms"

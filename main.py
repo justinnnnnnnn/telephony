@@ -1,6 +1,6 @@
 #this implementation only talks to receptionist, doesn't contain the custom agent and action middleware to then send a confirmation text
 import os
-import agent_preamble
+from agent_preamble import agent_preamble
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
