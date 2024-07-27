@@ -35,20 +35,6 @@ BASE_URL = os.getenv("BASE_URL")
 
 actually_send_sms = False #Twilio has not given permission to send sms, haven't tested sms functionality
 
-# async def end_of_call_event():
-#     logger.critical("Call ended, sending SMS")
-#     action_input = ActionInput(params=TwilioSendSmsParameters(to='recipient_number', body='Call has ended'))
-#     sms_action = TwilioSendSms(action_config=TwilioSendSmsActionConfig())
-#     await sms_action.run(action_input)
-
-
-# end_conversation_action = EndConversationVocodeActionConfig(
-#     type="action_end_conversation",
-#     action_trigger=FunctionCallActionTrigger(
-#         type="action_trigger_function_call",
-#         function_to_call=end_of_call_event
-#     )
-# )
 
 def log_sms_content(to: str, body: str):
     logger.critical(f"Simulating SMS to: {to}, Body: {body}")
@@ -56,6 +42,7 @@ def log_sms_content(to: str, body: str):
 
 class MyActionType(str, Enum):
     TWILIO_SEND_SMS = "twilio_send_sms"
+
 
 class MyAgentType(str, Enum):
     MY_CHAT_GPT = "my_agent_chat_gpt"
@@ -78,6 +65,7 @@ class TwilioSendSmsActionConfig(ActionConfig, type=MyActionType.TWILIO_SEND_SMS)
 class TwilioSendSmsParameters(BaseModel):
     to: str = Field(..., description="The mobile number of the recipient.")
     body: str = Field(..., description="The Time and Date selected for the appointment and the Doctor that they will see.")
+
 
 class TwilioSendSmsResponse(BaseModel):
     success: bool
@@ -106,7 +94,6 @@ class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParamete
             account_sid = os.getenv("TWILIO_ACCOUNT_SID")
             auth_token  = os.getenv("TWILIO_AUTH_TOKEN")
             from_number = os.getenv("TWILIO_FROM_NUMBER")
-            # to_number   = os.getenv("TWILIO_TO_NUMBER") #hardcoded
 
             try:
                 client = Client(account_sid, auth_token)
@@ -115,7 +102,6 @@ class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParamete
                     from_=from_number,
                     body=action_input.params.body,
                     to="+1{}".format(action_input.params.to),
-                    # to=to_number.format(action_input.params.to), #swap this with above to hardcode number
                 )
 
                 return ActionOutput(
@@ -156,20 +142,19 @@ synthesizer_config=ElevenLabsSynthesizerConfig.from_telephone_output_device(
     voice_id=os.getenv("ELEVEN_LABS_VOICE_ID"),
 )
 
+
 transcriber_config = DeepgramTranscriberConfig.from_telephone_input_device(
     api_key=os.getenv("DEEPGRAM_API_KEY"),
     endpointing_config=DeepgramEndpointingConfig()
 )
+
 
 agent_config = MyChatGPTAgentConfig(
     openai_api_key=os.getenv("OPENAI_API_KEY"),
     initial_message=BaseMessage(text=base_message),
     prompt_preamble=agent_preamble,
     generate_responses=True,
-    actions=[
-        TwilioSendSmsActionConfig(), 
-        # end_conversation_action
-    ],
+    actions=[TwilioSendSmsActionConfig()],
     end_conversation_on_goodbye=True,
 )
 
@@ -194,6 +179,7 @@ telephony_server = TelephonyServer(
         )
     ],
 )
+
 
 app.include_router(telephony_server.get_router())
 
