@@ -4,19 +4,21 @@
 #trigger sending of text via call termination
 
 import os
-from agent_preamble import agent_preamble
+from agent_preamble import agent_preamble, base_message
 from enum import Enum
 from typing import Type
 from loguru import logger
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel, Field
+
 
 from vocode.logging import configure_pretty_logging
 from vocode.streaming.action.base_action import BaseAction
+from vocode.streaming.action.end_conversation import EndConversationVocodeActionConfig, EndConversation
 from vocode.streaming.agent.base_agent import BaseAgent
 from vocode.streaming.agent.chat_gpt_agent import ChatGPTAgent
-from vocode.streaming.models.actions import ActionConfig, ActionInput, ActionOutput
+from vocode.streaming.models.actions import ActionConfig, ActionInput, ActionOutput, FunctionCallActionTrigger
 from vocode.streaming.models.agent import AgentConfig, ChatGPTAgentConfig
 from vocode.streaming.models.message import BaseMessage
 from vocode.streaming.models.synthesizer import ElevenLabsSynthesizerConfig
@@ -26,33 +28,54 @@ from vocode.streaming.telephony.config_manager.redis_config_manager import Redis
 from vocode.streaming.telephony.server.base import TelephonyServer, TwilioInboundCallConfig
 from vocode.streaming.transcriber.deepgram_transcriber import DeepgramEndpointingConfig
 
+logger.critical("THIS IS WOKRING??????")
+
+# Define the function to be called on call end
+# async def end_of_call_event():
+#     logger.critical("Call ended, sending SMS")
+#     action_input = ActionInput(params=TwilioSendSmsParameters(to='recipient_number', body='Call has ended'))
+#     sms_action = TwilioSendSms(action_config=TwilioSendSmsActionConfig())
+#     await sms_action.run(action_input)
+def end_of_call_event():
+    logger.critical("Call ended, sending SMS")
+
+# Define the call end action config
+end_conversation_action = EndConversationVocodeActionConfig(
+    type="action_end_conversation",
+    action_trigger=FunctionCallActionTrigger(
+        type="action_trigger_function_call",
+        function_to_call=end_of_call_event
+    )
+)
+
+def log_sms_content(to: str, body: str):
+    logger.critical(f"Simulating SMS to: {to}, Body: {body}")
+
+
+
 load_dotenv()
 configure_pretty_logging()
 
 app = FastAPI(docs_url=None)
 config_manager = RedisConfigManager()
 
-
-
-
 BASE_URL = os.getenv("BASE_URL")
+
 
 class MyActionType(str, Enum):
     TWILIO_SEND_SMS = "twilio_send_sms"
-    SENDGRID_SEND_EMAIL = "sendgrid_send_email"
-    RESEND_SEND_EMAIL = "resend_send_email"
-
 
 class MyAgentType(str, Enum):
-    CHAT_GPT = "agent_chat_gpt"
     MY_CHAT_GPT = "my_agent_chat_gpt"
+
 
 
 class MyActionFactory:
     def create_action(self, action_config: ActionConfig) -> BaseAction:
-        print("create_action.action_config {}".format(action_config))
         if isinstance(action_config, TwilioSendSmsActionConfig):
             return TwilioSendSms(action_config=action_config, should_respond=True)
+        elif isinstance(action_config, EndConversationVocodeActionConfig):
+            return EndConversation(action_config=action_config)
         else:
             raise Exception("Invalid custom action type")
 
@@ -62,60 +85,68 @@ class TwilioSendSmsActionConfig(ActionConfig, type=MyActionType.TWILIO_SEND_SMS)
 
 class TwilioSendSmsParameters(BaseModel):
     to: str = Field(..., description="The mobile number of the recipient.")
-    body: str = Field(..., description="The body of the sms.")
-
+    body: str = Field(..., description="The Time and Date selected for the appointment and the Doctor that they will see.")
 
 class TwilioSendSmsResponse(BaseModel):
     success: bool
     message: str
 
 
-class TwilioSendSms(
-    BaseAction[
-        TwilioSendSmsActionConfig, TwilioSendSmsParameters, TwilioSendSmsResponse
-    ]
-):
+class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParameters, TwilioSendSmsResponse] ):
     description: str = "Sends an sms."
     parameters_type: Type[TwilioSendSmsParameters] = TwilioSendSmsParameters
     response_type: Type[TwilioSendSmsResponse] = TwilioSendSmsResponse
-
+    
     async def run(
         self, action_input: ActionInput[TwilioSendSmsParameters]
     ) -> ActionOutput[TwilioSendSmsResponse]:
-        from twilio.rest import Client
+        # Log the SMS content
+        log_sms_content(action_input.params.to, action_input.params.body)
 
-        account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-        auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-        from_number = os.getenv("TWILIO_FROM_NUMBER")
+        # Simulate successful SMS sending
+        return ActionOutput(
+            action_type=self.action_config.type,
+            response=TwilioSendSmsResponse(
+                success=True, message="Successfully simulated sending SMS."
+            ),
+        )
+    # async def run(
+    #     self, action_input: ActionInput[TwilioSendSmsParameters]
+    # ) -> ActionOutput[TwilioSendSmsResponse]:
+    #     from twilio.rest import Client
 
-        try:
-            client = Client(account_sid, auth_token)
-            logger.info(
-                f"Sending SMS to: {action_input.params.to}, Body: {action_input.params.body}"
-            )
+    #     account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    #     auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    #     from_number = os.getenv("TWILIO_FROM_NUMBER")
 
-            # Send the sms
-            message = client.messages.create(
-                from_=from_number,
-                body=action_input.params.body,
-                to="+91{}".format(action_input.params.to),
-            )
+    #     try:
+    #         client = Client(account_sid, auth_token)
+    #         logger.critical(
+    #             f"Sending SMS to: {action_input.params.to}, Body: {action_input.params.body}"
+    #         )
 
-            return ActionOutput(
-                action_type=self.action_config.type,
-                response=TwilioSendSmsResponse(
-                    success=True, message="Successfully sent SMS."
-                ),
-            )
+    #         # Send the sms
+    #         message = client.messages.create(
+    #             from_=from_number,
+    #             body=action_input.params.body,
+    #             to="+1{}".format(action_input.params.to),
+    #         )
 
-        except RuntimeError as e:
-            logger.debug(f"Failed to send SMS: {e}")
-            return ActionOutput(
-                action_type=self.action_config.type,
-                response=TwilioSendSmsResponse(
-                    success=False, message="Failed to send SMS"
-                ),
-            )
+    #         return ActionOutput(
+    #             action_type=self.action_config.type,
+    #             response=TwilioSendSmsResponse(
+    #                 success=True, message="Successfully sent SMS."
+    #             ),
+    #         )
+
+    #     except RuntimeError as e:
+    #         logger.debug(f"Failed to send SMS: {e}")
+    #         return ActionOutput(
+    #             action_type=self.action_config.type,
+    #             response=TwilioSendSmsResponse(
+    #                 success=False, message="Failed to send SMS"
+    #             ),
+    #         )
 
 
 class MyChatGPTAgentConfig(ChatGPTAgentConfig, type=MyAgentType.MY_CHAT_GPT.value):
@@ -127,7 +158,6 @@ class MyChatGPTAgent(ChatGPTAgent):
         self,
         agent_config: MyChatGPTAgentConfig,
         action_factory: MyActionFactory = MyActionFactory(),
-        # logger: Optional[logging.Logger] = None,
     ):
         super().__init__(agent_config, action_factory=action_factory)
 
@@ -152,10 +182,11 @@ transcriber_config = DeepgramTranscriberConfig.from_telephone_input_device(
 
 agent_config = MyChatGPTAgentConfig(
     openai_api_key=os.getenv("OPENAI_API_KEY"),
-    initial_message=BaseMessage(text="Doctor Bonesaw's Office, this is Edwina, how can I help you today?"),
+    initial_message=BaseMessage(text=base_message),
     prompt_preamble=agent_preamble,
     generate_responses=True,
-    actions=[TwilioSendSmsActionConfig()],
+    actions=[TwilioSendSmsActionConfig(), end_conversation_action],
+    end_conversation_on_goodbye=True,
 )
 
 

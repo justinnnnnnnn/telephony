@@ -1,6 +1,6 @@
 #this implementation only talks to receptionist, doesn't contain the custom agent and action middleware to then send a confirmation text
 import os
-from agent_preamble import agent_preamble
+from agent_preamble import agent_preamble, base_message
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -47,7 +47,7 @@ telephony_server = TelephonyServer(
             url="/inbound_call",
             agent_config=ChatGPTAgentConfig(
                 openai_api_key=os.getenv("OPENAI_API_KEY"),
-                initial_message=BaseMessage(text="Doctor Bonesaw's Office, this is Edwina, how can I help you today?"),
+                initial_message=BaseMessage(text=base_message),
                 prompt_preamble=agent_preamble,
                 generate_responses=True,
                 model_name="gpt-4o"
