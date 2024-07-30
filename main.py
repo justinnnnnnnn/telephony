@@ -48,7 +48,6 @@ class MyAgentType(str, Enum):
     MY_CHAT_GPT = "my_agent_chat_gpt"
 
 
-
 class MyActionFactory:
     def create_action(self, action_config: ActionConfig) -> BaseAction:
         if isinstance(action_config, TwilioSendSmsActionConfig):
@@ -57,6 +56,7 @@ class MyActionFactory:
             return EndConversation(action_config=action_config)
         else:
             raise Exception("Invalid custom action type")
+
 
 class TwilioSendSmsActionConfig(ActionConfig, type=MyActionType.TWILIO_SEND_SMS):
     pass
@@ -82,9 +82,7 @@ class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParamete
             log_sms_content(action_input.params.to, action_input.params.body)
             return ActionOutput(
                 action_type=self.action_config.type,
-                response=TwilioSendSmsResponse(
-                    success=True, message="Successfully simulated sending SMS."
-                ),
+                response=TwilioSendSmsResponse(success=True, message="Successfully simulated sending SMS."),
             )
     else:
         async def run(
