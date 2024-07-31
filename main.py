@@ -33,7 +33,7 @@ config_manager = RedisConfigManager()
 
 BASE_URL = os.getenv("BASE_URL")
 
-actually_send_sms = False #Twilio has not given permission to send sms, haven't tested sms functionality
+actually_send_sms = True #Twilio has not given permission to send sms, haven't tested sms functionality
 
 
 def log_sms_content(to: str, body: str):
@@ -99,6 +99,7 @@ class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParamete
                 message = client.messages.create(
                     from_=from_number,
                     body=action_input.params.body,
+                    # to=os.getenv("TWILIO_TO_NUMBER")
                     to="+1{}".format(action_input.params.to),
                 )
 
@@ -108,7 +109,7 @@ class TwilioSendSms(BaseAction [TwilioSendSmsActionConfig, TwilioSendSmsParamete
                 )
 
             except RuntimeError as e:
-                logger.debug(f"Failed to send SMS: {e}")
+                logger.critical(f"Failed to send SMS: {e}")
                 return ActionOutput(action_type=self.action_config.type,
                     response=TwilioSendSmsResponse(success=False, message="Failed to send SMS"),
                 )
@@ -154,6 +155,7 @@ agent_config = MyChatGPTAgentConfig(
     generate_responses=True,
     actions=[TwilioSendSmsActionConfig()],
     end_conversation_on_goodbye=True,
+    model_name="gpt-4-turbo"
 )
 
 
